@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -141,7 +142,7 @@ func main() {
 		if err != nil {
 			// TODO: error handling
 		}
-		tmpname, err := uuid.NewV4()
+		username, err := fetchName()
 		if err != nil {
 			// TODO: error handling
 		}
@@ -149,7 +150,7 @@ func main() {
 		userIDByIDToken[idToken.Subject] = userID.String()
 		userByUserID[userID.String()] = user{
 			id:   userID.String(),
-			name: tmpname.String(),
+			name: username,
 		}
 		userIDByAccessToken[token.String()] = userID.String()
 
@@ -165,4 +166,23 @@ func main() {
 
 	log.Printf("listening on http://%s/", "localhost:5556")
 	log.Fatal(http.ListenAndServe("localhost:5556", nil))
+}
+
+func fetchName() (string, error) {
+	resp, err := http.Get("https://strongest-mashimashi.appspot.com/api/v1/phrase")
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if resp != nil {
+			resp.Body.Close()
+		}
+	}()
+
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(buf), nil
 }
