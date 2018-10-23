@@ -66,7 +66,7 @@ func main() {
 		}
 
 		user := userByUserID[userID]
-		msg := fmt.Sprintf("Hello %s!", user.name)
+		msg := fmt.Sprintf("Hello, %s!", user.name)
 		w.Write([]byte(msg))
 	})
 
