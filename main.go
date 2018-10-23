@@ -2,20 +2,29 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 
-	oidc "github.com/coreos/go-oidc"
-
+	"github.com/coreos/go-oidc"
+	"github.com/satori/go.uuid"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 )
 
 var (
-	clientID     = os.Getenv("GOOGLE_OAUTH2_CLIENT_ID")
-	clientSecret = os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET")
+	clientID            = os.Getenv("GOOGLE_OAUTH2_CLIENT_ID")
+	clientSecret        = os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET")
+	userIDByIDToken     = make(map[string]string)
+	userByUserID        = make(map[string]user)
+	userIDByAccessToken = make(map[string]string)
 )
+
+type user struct {
+	id   string
+	name string
+}
 
 func main() {
 	ctx := context.Background()
@@ -40,6 +49,27 @@ func main() {
 	state := "foobar" // Don't do this in production.
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		a, err := r.Cookie("Authorization")
+		if err != nil {
+			msg := fmt.Sprintf("No Authorization info found...")
+			fmt.Fprintf(w, "Cookies: %v\n", r.Cookies())
+			fmt.Fprintf(w, "%s\n", msg)
+			return
+		}
+
+		userID, ok := userIDByAccessToken[a.Value]
+		if !ok {
+			msg := fmt.Sprintf("User with id [%s] not found...", a.Value)
+			w.Write([]byte(msg))
+			return
+		}
+
+		user := userByUserID[userID]
+		msg := fmt.Sprintf("Hello %s!", user.name)
+		w.Write([]byte(msg))
+	})
+
+	http.HandleFunc("/auth/google", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, config.AuthCodeURL(state), http.StatusFound)
 	})
 
@@ -65,7 +95,7 @@ func main() {
 			return
 		}
 
-		//oauth2Token.AccessToken = "*REDACTED*"
+		oauth2Token.AccessToken = "*REDACTED*"
 
 		resp := struct {
 			OAuth2Token   *oauth2.Token
@@ -76,12 +106,61 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		data, err := json.MarshalIndent(resp, "", "    ")
+
+		_, err = json.MarshalIndent(resp, "", "    ")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Write(data)
+
+		// check if the user already exists
+		uid, ok := userIDByIDToken[idToken.Subject]
+		if ok {
+			token, err := uuid.NewV4()
+			if err != nil {
+				// TODO: error handling
+			}
+			userIDByAccessToken[token.String()] = uid
+			cookie := &http.Cookie{
+				Name:   "Authorization",
+				Value:  token.String(),
+				Domain: "localhost",
+				Path:   "/",
+			}
+			http.SetCookie(w, cookie)
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+
+		// create new user
+		userID, err := uuid.NewV4()
+		if err != nil {
+			// TODO: error handling
+		}
+		token, err := uuid.NewV4()
+		if err != nil {
+			// TODO: error handling
+		}
+		tmpname, err := uuid.NewV4()
+		if err != nil {
+			// TODO: error handling
+		}
+
+		userIDByIDToken[idToken.Subject] = userID.String()
+		userByUserID[userID.String()] = user{
+			id:   userID.String(),
+			name: tmpname.String(),
+		}
+		userIDByAccessToken[token.String()] = userID.String()
+
+		cookie := &http.Cookie{
+			Name:   "Authorization",
+			Value:  token.String(),
+			Domain: "localhost",
+			Path:   "/",
+		}
+		http.SetCookie(w, cookie)
+		http.Redirect(w, r, "/", http.StatusFound)
 	})
 
 	log.Printf("listening on http://%s/", "localhost:5556")
