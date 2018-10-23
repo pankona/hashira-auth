@@ -142,7 +142,7 @@ func main() {
 		if err != nil {
 			// TODO: error handling
 		}
-		username, err := fetchName()
+		username, err := fetchPhraseFromMashimashi()
 		if err != nil {
 			// TODO: error handling
 		}
@@ -168,7 +168,7 @@ func main() {
 	log.Fatal(http.ListenAndServe("localhost:5556", nil))
 }
 
-func fetchName() (string, error) {
+func fetchPhraseFromMashimashi() (string, error) {
 	resp, err := http.Get("https://strongest-mashimashi.appspot.com/api/v1/phrase")
 	if err != nil {
 		return "", err
