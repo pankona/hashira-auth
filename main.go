@@ -22,6 +22,8 @@ var (
 	userIDByAccessToken = make(map[string]string)
 )
 
+const servingURL = "https://hashira-auth.appspot.com"
+
 type user struct {
 	id   string
 	name string
@@ -49,7 +51,7 @@ func main() {
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		Endpoint:     provider.Endpoint(),
-		RedirectURL:  "http://localhost:" + port + "/auth/google/callback",
+		RedirectURL:  servingURL + "/auth/google/callback",
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 
@@ -128,7 +130,7 @@ func main() {
 			cookie := &http.Cookie{
 				Name:   "Authorization",
 				Value:  token.String(),
-				Domain: "localhost",
+				Domain: servingURL,
 				Path:   "/",
 			}
 			http.SetCookie(w, cookie)
@@ -156,7 +158,7 @@ func main() {
 		cookie := &http.Cookie{
 			Name:   "Authorization",
 			Value:  token.String(),
-			Domain: "localhost",
+			Domain: servingURL,
 			Path:   "/",
 		}
 		http.SetCookie(w, cookie)
