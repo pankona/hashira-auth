@@ -1,5 +1,8 @@
 runtime: go111
 
+includes:
+- secret.yaml
+
 handlers:
 - url: /.*
   script: _go_app
@@ -8,7 +11,3 @@ automatic_scaling:
   min_idle_instances: 1
   max_idle_instances: 1
   max_pending_latency: 2000ms
-
-skip_files:
-- app.yaml
-
