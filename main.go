@@ -28,6 +28,12 @@ type user struct {
 }
 
 func main() {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+		log.Printf("Defaulting to port %s", port)
+	}
+
 	ctx := context.Background()
 
 	provider, err := oidc.NewProvider(ctx, "https://accounts.google.com")
@@ -43,7 +49,7 @@ func main() {
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		Endpoint:     provider.Endpoint(),
-		RedirectURL:  "http://localhost:5556/auth/google/callback",
+		RedirectURL:  "http://localhost:" + port + "/auth/google/callback",
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 
@@ -117,10 +123,7 @@ func main() {
 		// check if the user already exists
 		uid, ok := userIDByIDToken[idToken.Subject]
 		if ok {
-			token, err := uuid.NewV4()
-			if err != nil {
-				// TODO: error handling
-			}
+			token := uuid.NewV4()
 			userIDByAccessToken[token.String()] = uid
 			cookie := &http.Cookie{
 				Name:   "Authorization",
@@ -134,14 +137,10 @@ func main() {
 		}
 
 		// create new user
-		userID, err := uuid.NewV4()
-		if err != nil {
-			// TODO: error handling
-		}
-		token, err := uuid.NewV4()
-		if err != nil {
-			// TODO: error handling
-		}
+		var (
+			userID = uuid.NewV4()
+			token  = uuid.NewV4()
+		)
 		username, err := fetchPhraseFromMashimashi()
 		if err != nil {
 			// TODO: error handling
@@ -164,8 +163,7 @@ func main() {
 		http.Redirect(w, r, "/", http.StatusFound)
 	})
 
-	log.Printf("listening on http://%s/", "localhost:5556")
-	log.Fatal(http.ListenAndServe("localhost:5556", nil))
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
 func fetchPhraseFromMashimashi() (string, error) {
