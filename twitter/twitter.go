@@ -9,6 +9,11 @@ import (
 	"github.com/garyburd/go-oauth/oauth"
 )
 
+type KVStore interface {
+	Store(k string, v interface{})
+	Load(k string) interface{}
+}
+
 type Twitter struct {
 	consumerKey       string
 	consumerSecret    string
@@ -16,9 +21,12 @@ type Twitter struct {
 	accessTokenSecret string
 	credential        *oauth.Credentials
 	client            *anaconda.TwitterApi
+	kvstore           KVStore
 }
 
-func New(consumerKey, consumerSecret, accessToken, accessTokenSecret string) *Twitter {
+func New(consumerKey, consumerSecret,
+	accessToken, accessTokenSecret string,
+	kvstore KVStore) *Twitter {
 	if consumerKey == "" || consumerSecret == "" ||
 		accessToken == "" || accessTokenSecret == "" {
 		panic("not enough parameter")
@@ -29,6 +37,7 @@ func New(consumerKey, consumerSecret, accessToken, accessTokenSecret string) *Tw
 		consumerSecret:    consumerSecret,
 		accessToken:       accessToken,
 		accessTokenSecret: accessTokenSecret,
+		kvstore:           kvstore,
 	}
 	t.client = anaconda.NewTwitterApiWithCredentials(
 		accessToken, accessTokenSecret,
@@ -48,6 +57,8 @@ func (t *Twitter) handleRequestToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println(url)
+	// TODO: must expire
+	// TODO: support multi session
 	t.credential = tmpCred
 	http.Redirect(w, r, url, http.StatusFound)
 }

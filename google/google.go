@@ -3,13 +3,25 @@ package google
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 
 	"github.com/coreos/go-oidc"
+	"github.com/satori/go.uuid"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 )
+
+type KVStore interface {
+	Store(bucket, k string, v interface{})
+	Load(bucket, k string) (interface{}, bool)
+}
+
+type user struct {
+	id   string
+	name string
+}
 
 type Google struct {
 	id       string
@@ -17,9 +29,10 @@ type Google struct {
 	provider *oidc.Provider
 	verifier *oidc.IDTokenVerifier
 	config   oauth2.Config
+	kvstore  KVStore
 }
 
-func New(id, secret string) *Google {
+func New(id, secret string, kvstore KVStore) *Google {
 	provider, err := oidc.NewProvider(context.Background(), "https://accounts.google.com")
 	if err != nil {
 		log.Fatal(err)
@@ -43,6 +56,7 @@ func New(id, secret string) *Google {
 		provider: provider,
 		verifier: verifier,
 		config:   config,
+		kvstore:  kvstore,
 	}
 }
 
@@ -98,6 +112,44 @@ func (g *Google) handleIDToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// check if the user already exists
+	uid, ok := g.kvstore.Load("userIDByIDToken", idToken.Subject)
+	if ok {
+		token := uuid.NewV4()
+		g.kvstore.Store("userIDByAccessToken", token.String(), uid)
+		cookie := &http.Cookie{
+			Name:  "Authorization",
+			Value: token.String(),
+			Path:  "/",
+		}
+		http.SetCookie(w, cookie)
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	// create new user
+	var (
+		userID = uuid.NewV4()
+		token  = uuid.NewV4()
+	)
+	username, err := fetchPhraseFromMashimashi()
+	if err != nil {
+		// TODO: error handling
+	}
+
+	g.kvstore.Store("userIDByIDToken", idToken.Subject, userID.String())
+	g.kvstore.Store("userByUserID", userID.String(), user{
+		id:   userID.String(),
+		name: username,
+	})
+	g.kvstore.Store("userIDByAccessToken", token.String(), userID.String())
+
+	cookie := &http.Cookie{
+		Name:  "Authorization",
+		Value: token.String(),
+		Path:  "/",
+	}
+	http.SetCookie(w, cookie)
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
@@ -109,4 +161,24 @@ func (g *Google) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		g.handleCode(w, r)
 	}
+}
+
+// TODO: make this DRY
+func fetchPhraseFromMashimashi() (string, error) {
+	resp, err := http.Get("https://strongest-mashimashi.appspot.com/api/v1/phrase")
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if resp != nil {
+			resp.Body.Close()
+		}
+	}()
+
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(buf), nil
 }
