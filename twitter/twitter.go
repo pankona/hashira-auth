@@ -18,9 +18,7 @@ type Twitter struct {
 	client            *anaconda.TwitterApi
 }
 
-func New(consumerKey string, consumerSecret string,
-	accessToken string, accessTokenSecret string) *Twitter {
-
+func New(consumerKey, consumerSecret, accessToken, accessTokenSecret string) *Twitter {
 	if consumerKey == "" || consumerSecret == "" ||
 		accessToken == "" || accessTokenSecret == "" {
 		panic("not enough parameter")
@@ -39,11 +37,11 @@ func New(consumerKey string, consumerSecret string,
 	return t
 }
 
-func (t *Twitter) RegisterHandler(pattern string) {
+func (t *Twitter) Register(pattern string) {
 	http.Handle(pattern, http.StripPrefix(pattern, t))
 }
 
-func (t *Twitter) RequestTokenHandler(w http.ResponseWriter, r *http.Request) {
+func (t *Twitter) handleRequestToken(w http.ResponseWriter, r *http.Request) {
 	url, tmpCred, err := t.client.AuthorizationURL("http://localhost:8080/auth/twitter/callback")
 	if err != nil {
 		fmt.Fprintf(w, "%v", err)
@@ -54,7 +52,7 @@ func (t *Twitter) RequestTokenHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
-func (t *Twitter) AccessTokenHandler(w http.ResponseWriter, r *http.Request) {
+func (t *Twitter) handleAccessToken(w http.ResponseWriter, r *http.Request) {
 	c, _, err := t.client.GetCredentials(t.credential, r.URL.Query().Get("oauth_verifier"))
 	if err != nil {
 		fmt.Fprintf(w, "%v", err)
@@ -80,8 +78,8 @@ func (t *Twitter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 	switch r.URL.Path {
 	case "callback":
-		t.AccessTokenHandler(w, r)
+		t.handleAccessToken(w, r)
 	default:
-		t.RequestTokenHandler(w, r)
+		t.handleRequestToken(w, r)
 	}
 }
