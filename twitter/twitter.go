@@ -2,11 +2,14 @@ package twitter
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/garyburd/go-oauth/oauth"
+	"github.com/pankona/hashira-auth/user"
+	uuid "github.com/satori/go.uuid"
 )
 
 type KVStore interface {
@@ -82,7 +85,48 @@ func (t *Twitter) handleAccessToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: use u.IdStr to identify user
-	fmt.Fprintf(w, "%v", u.IdStr)
+	//fmt.Fprintf(w, "%v", u.IdStr)
+
+	// check if the user already exists
+	uid, ok := t.kvstore.Load("userIDByIDToken", u.IdStr)
+	if ok {
+		token := uuid.NewV4()
+		t.kvstore.Store("userIDByAccessToken", token.String(), uid)
+		cookie := &http.Cookie{
+			Name:  "Authorization",
+			Value: token.String(),
+			Path:  "/",
+		}
+		http.SetCookie(w, cookie)
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+
+	// create new user
+	var (
+		userID = uuid.NewV4()
+		token  = uuid.NewV4()
+	)
+
+	username, err := fetchPhraseFromMashimashi()
+	if err != nil {
+		// TODO: error handling
+	}
+	t.kvstore.Store("userIDByIDToken", u.IdStr, userID.String())
+	t.kvstore.Store("userByUserID", userID.String(), user.User{
+		ID:   userID.String(),
+		Name: username,
+	})
+	t.kvstore.Store("userIDByAccessToken", token.String(), userID.String())
+
+	cookie := &http.Cookie{
+		Name:  "Authorization",
+		Value: token.String(),
+		Path:  "/",
+	}
+	http.SetCookie(w, cookie)
+	http.Redirect(w, r, "/", http.StatusFound)
+
 }
 
 func (t *Twitter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -92,4 +136,24 @@ func (t *Twitter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		t.handleRequestToken(w, r)
 	}
+}
+
+// TODO: make this DRY
+func fetchPhraseFromMashimashi() (string, error) {
+	resp, err := http.Get("https://strongest-mashimashi.appspot.com/api/v1/phrase")
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if resp != nil {
+			resp.Body.Close()
+		}
+	}()
+
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(buf), nil
 }
