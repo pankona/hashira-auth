@@ -2,3 +2,5 @@
 run.sh
 oidc-test
 secret.yaml
+vendor
+hashira-auth

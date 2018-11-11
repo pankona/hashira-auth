@@ -1,32 +1,49 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 
-	"github.com/coreos/go-oidc"
-	"github.com/satori/go.uuid"
-	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
+	"github.com/pankona/hashira-auth/google"
+	"github.com/pankona/hashira-auth/twitter"
+	"github.com/pankona/hashira-auth/user"
 )
 
-var (
-	clientID            = os.Getenv("GOOGLE_OAUTH2_CLIENT_ID")
-	clientSecret        = os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET")
-	userIDByIDToken     = make(map[string]string)
-	userByUserID        = make(map[string]user)
-	userIDByAccessToken = make(map[string]string)
-)
+type memKVS struct {
+	userIDByIDToken     map[string]string
+	userIDByAccessToken map[string]string
+	userByUserID        map[string]user.User
+}
 
-const servingURL = "https://hashira-auth.appspot.com"
+func (m *memKVS) Store(bucket, k string, v interface{}) {
+	switch bucket {
+	case "userIDByIDToken":
+		m.userIDByIDToken[k] = v.(string)
+	case "userIDByAccessToken":
+		m.userIDByAccessToken[k] = v.(string)
+	case "userByUserID":
+		m.userByUserID[k] = v.(user.User)
+	default:
+		panic("unknown bucket [" + bucket + "] is specified.")
+	}
+}
 
-type user struct {
-	id   string
-	name string
+func (m *memKVS) Load(bucket, k string) (interface{}, bool) {
+	switch bucket {
+	case "userIDByIDToken":
+		v, ok := m.userIDByIDToken[k]
+		return v, ok
+	case "userIDByAccessToken":
+		v, ok := m.userIDByAccessToken[k]
+		return v, ok
+	case "userByUserID":
+		v, ok := m.userByUserID[k]
+		return v, ok
+	default:
+		panic("unknown bucket [" + bucket + "] is specified.")
+	}
 }
 
 func main() {
@@ -36,28 +53,16 @@ func main() {
 		log.Printf("Defaulting to port %s", port)
 	}
 
-	ctx := context.Background()
-
-	provider, err := oidc.NewProvider(ctx, "https://accounts.google.com")
-	if err != nil {
-		log.Fatal(err)
+	kvs := &memKVS{
+		userIDByIDToken:     make(map[string]string),
+		userByUserID:        make(map[string]user.User),
+		userIDByAccessToken: make(map[string]string),
 	}
-	oidcConfig := &oidc.Config{
-		ClientID: clientID,
-	}
-	verifier := provider.Verifier(oidcConfig)
-
-	config := oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		Endpoint:     provider.Endpoint(),
-		RedirectURL:  servingURL + "/auth/google/callback",
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
-	}
-
-	state := "foobar" // Don't do this in production.
+	registerGoogle(kvs)
+	registerTwitter(kvs)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println(r.URL.Path)
 		a, err := r.Cookie("Authorization")
 		if err != nil {
 			msg := fmt.Sprintf("No Authorization info found...")
@@ -66,123 +71,36 @@ func main() {
 			return
 		}
 
-		userID, ok := userIDByAccessToken[a.Value]
+		userID, ok := kvs.userIDByAccessToken[a.Value]
 		if !ok {
 			msg := fmt.Sprintf("User with id [%s] not found...", a.Value)
 			w.Write([]byte(msg))
 			return
 		}
 
-		user := userByUserID[userID]
-		msg := fmt.Sprintf("Hello, %s!", user.name)
+		u := kvs.userByUserID[userID]
+		msg := fmt.Sprintf("Hello, %s!", u.Name)
 		w.Write([]byte(msg))
 	})
-
-	http.HandleFunc("/auth/google", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, config.AuthCodeURL(state), http.StatusFound)
-	})
-
-	http.HandleFunc("/auth/google/callback", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("state") != state {
-			http.Error(w, "state did not match", http.StatusBadRequest)
-			return
-		}
-
-		oauth2Token, err := config.Exchange(ctx, r.URL.Query().Get("code"))
-		if err != nil {
-			http.Error(w, "Failed to exchange token: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		rawIDToken, ok := oauth2Token.Extra("id_token").(string)
-		if !ok {
-			http.Error(w, "No id_token field in oauth2 token.", http.StatusInternalServerError)
-			return
-		}
-		idToken, err := verifier.Verify(ctx, rawIDToken)
-		if err != nil {
-			http.Error(w, "Failed to verify ID Token: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		oauth2Token.AccessToken = "*REDACTED*"
-
-		resp := struct {
-			OAuth2Token   *oauth2.Token
-			IDTokenClaims *json.RawMessage // ID Token payload is just JSON.
-		}{oauth2Token, new(json.RawMessage)}
-
-		if err := idToken.Claims(&resp.IDTokenClaims); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		_, err = json.MarshalIndent(resp, "", "    ")
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// check if the user already exists
-		uid, ok := userIDByIDToken[idToken.Subject]
-		if ok {
-			token := uuid.NewV4()
-			userIDByAccessToken[token.String()] = uid
-			cookie := &http.Cookie{
-				Name:   "Authorization",
-				Value:  token.String(),
-				Domain: servingURL,
-				Path:   "/",
-			}
-			http.SetCookie(w, cookie)
-			http.Redirect(w, r, "/", http.StatusFound)
-			return
-		}
-
-		// create new user
-		var (
-			userID = uuid.NewV4()
-			token  = uuid.NewV4()
-		)
-		username, err := fetchPhraseFromMashimashi()
-		if err != nil {
-			// TODO: error handling
-		}
-
-		userIDByIDToken[idToken.Subject] = userID.String()
-		userByUserID[userID.String()] = user{
-			id:   userID.String(),
-			name: username,
-		}
-		userIDByAccessToken[token.String()] = userID.String()
-
-		cookie := &http.Cookie{
-			Name:   "Authorization",
-			Value:  token.String(),
-			Domain: servingURL,
-			Path:   "/",
-		}
-		http.SetCookie(w, cookie)
-		http.Redirect(w, r, "/", http.StatusFound)
-	})
-
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
-func fetchPhraseFromMashimashi() (string, error) {
-	resp, err := http.Get("https://strongest-mashimashi.appspot.com/api/v1/phrase")
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		if resp != nil {
-			resp.Body.Close()
-		}
-	}()
+func registerGoogle(kvs google.KVStore) {
+	var (
+		clientID     = os.Getenv("GOOGLE_OAUTH2_CLIENT_ID")
+		clientSecret = os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET")
+	)
+	g := google.New(clientID, clientSecret, kvs)
+	g.Register("/auth/google/")
+}
 
-	buf, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	return string(buf), nil
+func registerTwitter(kvs twitter.KVStore) {
+	var (
+		consumerKey       = os.Getenv("TWITTER_API_TOKEN")
+		consumerSecret    = os.Getenv("TWITTER_API_SECRET")
+		accessToken       = os.Getenv("TWITTER_API_ACCESS_TOKEN")
+		accessTokenSecret = os.Getenv("TWITTER_API_ACCESS_TOKEN_SECRET")
+	)
+	t := twitter.New(consumerKey, consumerSecret, accessToken, accessTokenSecret, kvs)
+	t.Register("/auth/twitter/")
 }
