@@ -5,10 +5,10 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/user"
 
 	"github.com/pankona/hashira-auth/google"
 	"github.com/pankona/hashira-auth/twitter"
+	"github.com/pankona/hashira-auth/user"
 )
 
 type memKVS struct {
@@ -31,7 +31,19 @@ func (m *memKVS) Store(bucket, k string, v interface{}) {
 }
 
 func (m *memKVS) Load(bucket, k string) (interface{}, bool) {
-	panic("implement me")
+	switch bucket {
+	case "userIDByIDToken":
+		v, ok := m.userIDByIDToken[k]
+		return v, ok
+	case "userIDByAccessToken":
+		v, ok := m.userIDByAccessToken[k]
+		return v, ok
+	case "userByUserID":
+		v, ok := m.userByUserID[k]
+		return v, ok
+	default:
+		panic("unknown bucket [" + bucket + "] is specified.")
+	}
 }
 
 func main() {
@@ -79,7 +91,7 @@ func registerGoogle(kvs google.KVStore) {
 		clientSecret = os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET")
 	)
 	g := google.New(clientID, clientSecret, kvs)
-	g.Register("/auth/google")
+	g.Register("/auth/google/")
 }
 
 func registerTwitter(kvs twitter.KVStore) {

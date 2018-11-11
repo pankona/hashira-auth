@@ -2,12 +2,12 @@ package google
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 
 	"github.com/coreos/go-oidc"
+	"github.com/pankona/hashira-auth/user"
 	"github.com/satori/go.uuid"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -16,11 +16,6 @@ import (
 type KVStore interface {
 	Store(bucket, k string, v interface{})
 	Load(bucket, k string) (interface{}, bool)
-}
-
-type user struct {
-	id   string
-	name string
 }
 
 type Google struct {
@@ -132,29 +127,30 @@ func (g *Google) handleIDToken(w http.ResponseWriter, r *http.Request) {
 		userID = uuid.NewV4()
 		token  = uuid.NewV4()
 	)
+
 	username, err := fetchPhraseFromMashimashi()
 	if err != nil {
 		// TODO: error handling
 	}
 
 	g.kvstore.Store("userIDByIDToken", idToken.Subject, userID.String())
-	g.kvstore.Store("userByUserID", userID.String(), user{
-		id:   userID.String(),
-		name: username,
+	g.kvstore.Store("userByUserID", userID.String(), user.User{
+		ID:   userID.String(),
+		Name: username,
 	})
 	g.kvstore.Store("userIDByAccessToken", token.String(), userID.String())
 
 	cookie := &http.Cookie{
-		Name:  "Authorization",
-		Value: token.String(),
-		Path:  "/",
+		Name:   "Authorization",
+		Value:  token.String(),
+		Path:   "/",
+		Domain: "localhost",
 	}
 	http.SetCookie(w, cookie)
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 func (g *Google) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL.Path)
 	switch r.URL.Path {
 	case "callback":
 		g.handleIDToken(w, r)

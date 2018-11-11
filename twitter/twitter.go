@@ -56,7 +56,7 @@ func (t *Twitter) handleRequestToken(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "%v", err)
 		return
 	}
-	fmt.Println(url)
+
 	// TODO: must expire
 	// TODO: support multi session
 	t.credential = tmpCred
@@ -86,7 +86,6 @@ func (t *Twitter) handleAccessToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (t *Twitter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL.Path)
 	switch r.URL.Path {
 	case "callback":
 		t.handleAccessToken(w, r)
