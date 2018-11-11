@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/pankona/hashira-auth/google"
 	"github.com/pankona/hashira-auth/twitter"
@@ -54,11 +53,14 @@ func main() {
 		log.Printf("Defaulting to port %s", port)
 	}
 
-	env := os.Getenv("SERVER_SOFTWARE")
+	env := os.Getenv("GAE_ENV")
 	servingBaseURL := "http://localhost:8080"
-	if strings.HasPrefix(env, "Google App Engine/") {
+	if env != "" {
 		servingBaseURL = "https://hashira-auth.appspot.com"
 	}
+
+	log.Printf("GAE_ENV: %v", env)
+	log.Printf("servingBaseURL: %v", servingBaseURL)
 
 	kvs := &memKVS{
 		userIDByIDToken:     make(map[string]string),

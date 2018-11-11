@@ -5,7 +5,7 @@ includes:
 
 handlers:
 - url: /.*
-  script: _go_app
+  script: auto
 
 automatic_scaling:
   min_idle_instances: 1
