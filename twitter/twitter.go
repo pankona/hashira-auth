@@ -45,7 +45,6 @@ func New(consumerKey, consumerSecret,
 		kvstore:           kvstore,
 		callbackURL:       callbackURL,
 	}
-	fmt.Println(callbackURL)
 	t.client = anaconda.NewTwitterApiWithCredentials(
 		accessToken, accessTokenSecret,
 		consumerKey, consumerSecret)
