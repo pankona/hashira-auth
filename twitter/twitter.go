@@ -10,8 +10,8 @@ import (
 )
 
 type KVStore interface {
-	Store(k string, v interface{})
-	Load(k string) interface{}
+	Store(bucket, k string, v interface{})
+	Load(bucket, k string) (interface{}, bool)
 }
 
 type Twitter struct {
