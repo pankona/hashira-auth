@@ -84,9 +84,6 @@ func (t *Twitter) handleAccessToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: use u.IdStr to identify user
-	//fmt.Fprintf(w, "%v", u.IdStr)
-
 	// check if the user already exists
 	uid, ok := t.kvstore.Load("userIDByIDToken", u.IdStr)
 	if ok {
