@@ -141,10 +141,9 @@ func (g *Google) handleIDToken(w http.ResponseWriter, r *http.Request) {
 	g.kvstore.Store("userIDByAccessToken", token.String(), userID.String())
 
 	cookie := &http.Cookie{
-		Name:   "Authorization",
-		Value:  token.String(),
-		Path:   "/",
-		Domain: "localhost",
+		Name:  "Authorization",
+		Value: token.String(),
+		Path:  "/",
 	}
 	http.SetCookie(w, cookie)
 	http.Redirect(w, r, "/", http.StatusFound)
