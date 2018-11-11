@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/pankona/hashira-auth/google"
 	"github.com/pankona/hashira-auth/twitter"
@@ -53,13 +54,19 @@ func main() {
 		log.Printf("Defaulting to port %s", port)
 	}
 
+	env := os.Getenv("SERVER_SOFTWARE")
+	servingBaseURL := "http://localhost:8080"
+	if strings.HasPrefix(env, "Google App Engine/") {
+		servingBaseURL = "https://hashira-auth.appspot.com"
+	}
+
 	kvs := &memKVS{
 		userIDByIDToken:     make(map[string]string),
 		userByUserID:        make(map[string]user.User),
 		userIDByAccessToken: make(map[string]string),
 	}
-	registerGoogle(kvs)
-	registerTwitter(kvs)
+	registerGoogle(kvs, servingBaseURL)
+	registerTwitter(kvs, servingBaseURL)
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(r.URL.Path)
@@ -85,22 +92,24 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
-func registerGoogle(kvs google.KVStore) {
+func registerGoogle(kvs google.KVStore, servingBaseURL string) {
 	var (
 		clientID     = os.Getenv("GOOGLE_OAUTH2_CLIENT_ID")
 		clientSecret = os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET")
 	)
-	g := google.New(clientID, clientSecret, kvs)
+	g := google.New(clientID, clientSecret,
+		servingBaseURL+"/auth/google/callback", kvs)
 	g.Register("/auth/google/")
 }
 
-func registerTwitter(kvs twitter.KVStore) {
+func registerTwitter(kvs twitter.KVStore, servingBaseURL string) {
 	var (
 		consumerKey       = os.Getenv("TWITTER_API_TOKEN")
 		consumerSecret    = os.Getenv("TWITTER_API_SECRET")
 		accessToken       = os.Getenv("TWITTER_API_ACCESS_TOKEN")
 		accessTokenSecret = os.Getenv("TWITTER_API_ACCESS_TOKEN_SECRET")
 	)
-	t := twitter.New(consumerKey, consumerSecret, accessToken, accessTokenSecret, kvs)
+	t := twitter.New(consumerKey, consumerSecret, accessToken, accessTokenSecret,
+		servingBaseURL+"/auth/twitter/callback", kvs)
 	t.Register("/auth/twitter/")
 }

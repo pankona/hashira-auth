@@ -27,7 +27,7 @@ type Google struct {
 	kvstore  KVStore
 }
 
-func New(id, secret string, kvstore KVStore) *Google {
+func New(id, secret, callbackURL string, kvstore KVStore) *Google {
 	provider, err := oidc.NewProvider(context.Background(), "https://accounts.google.com")
 	if err != nil {
 		log.Fatal(err)
@@ -41,7 +41,7 @@ func New(id, secret string, kvstore KVStore) *Google {
 		ClientID:     id,
 		ClientSecret: secret,
 		Endpoint:     provider.Endpoint(),
-		RedirectURL:  "http://localhost:8080/auth/google/callback",
+		RedirectURL:  callbackURL,
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 

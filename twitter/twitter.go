@@ -25,13 +25,15 @@ type Twitter struct {
 	credential        *oauth.Credentials
 	client            *anaconda.TwitterApi
 	kvstore           KVStore
+	callbackURL       string
 }
 
 func New(consumerKey, consumerSecret,
-	accessToken, accessTokenSecret string,
-	kvstore KVStore) *Twitter {
+	accessToken, accessTokenSecret,
+	callbackURL string, kvstore KVStore) *Twitter {
 	if consumerKey == "" || consumerSecret == "" ||
-		accessToken == "" || accessTokenSecret == "" {
+		accessToken == "" || accessTokenSecret == "" ||
+		callbackURL == "" {
 		panic("not enough parameter")
 	}
 
@@ -41,7 +43,9 @@ func New(consumerKey, consumerSecret,
 		accessToken:       accessToken,
 		accessTokenSecret: accessTokenSecret,
 		kvstore:           kvstore,
+		callbackURL:       callbackURL,
 	}
+	fmt.Println(callbackURL)
 	t.client = anaconda.NewTwitterApiWithCredentials(
 		accessToken, accessTokenSecret,
 		consumerKey, consumerSecret)
@@ -54,7 +58,7 @@ func (t *Twitter) Register(pattern string) {
 }
 
 func (t *Twitter) handleRequestToken(w http.ResponseWriter, r *http.Request) {
-	url, tmpCred, err := t.client.AuthorizationURL("http://localhost:8080/auth/twitter/callback")
+	url, tmpCred, err := t.client.AuthorizationURL(t.callbackURL)
 	if err != nil {
 		fmt.Fprintf(w, "%v", err)
 		return
