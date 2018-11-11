@@ -5,26 +5,29 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/user"
 
 	"github.com/pankona/hashira-auth/google"
 	"github.com/pankona/hashira-auth/twitter"
 )
 
-var (
-	userIDByIDToken     = make(map[string]string)
-	userByUserID        = make(map[string]user)
-	userIDByAccessToken = make(map[string]string)
-)
-
-type user struct {
-	id   string
-	name string
+type memKVS struct {
+	userIDByIDToken     map[string]string
+	userIDByAccessToken map[string]string
+	userByUserID        map[string]user.User
 }
 
-type memKVS struct {}
-
 func (m *memKVS) Store(bucket, k string, v interface{}) {
-	panic("implement me")
+	switch bucket {
+	case "userIDByIDToken":
+		m.userIDByIDToken[k] = v.(string)
+	case "userIDByAccessToken":
+		m.userIDByAccessToken[k] = v.(string)
+	case "userByUserID":
+		m.userByUserID[k] = v.(user.User)
+	default:
+		panic("unknown bucket [" + bucket + "] is specified.")
+	}
 }
 
 func (m *memKVS) Load(bucket, k string) (interface{}, bool) {
@@ -38,7 +41,11 @@ func main() {
 		log.Printf("Defaulting to port %s", port)
 	}
 
-	kvs := &memKVS{}
+	kvs := &memKVS{
+		userIDByIDToken:     make(map[string]string),
+		userByUserID:        make(map[string]user.User),
+		userIDByAccessToken: make(map[string]string),
+	}
 	registerGoogle(kvs)
 	registerTwitter(kvs)
 
@@ -52,15 +59,15 @@ func main() {
 			return
 		}
 
-		userID, ok := userIDByAccessToken[a.Value]
+		userID, ok := kvs.userIDByAccessToken[a.Value]
 		if !ok {
 			msg := fmt.Sprintf("User with id [%s] not found...", a.Value)
 			w.Write([]byte(msg))
 			return
 		}
 
-		user := userByUserID[userID]
-		msg := fmt.Sprintf("Hello, %s!", user.name)
+		u := kvs.userByUserID[userID]
+		msg := fmt.Sprintf("Hello, %s!", u.Name)
 		w.Write([]byte(msg))
 	})
 	log.Fatal(http.ListenAndServe(":"+port, nil))
