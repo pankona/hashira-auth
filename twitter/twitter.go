@@ -103,6 +103,26 @@ func (t *Twitter) handleAccessToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// check if the user is registered by other oauth provider
+	a, err := r.Cookie("Authorization")
+	if err == nil {
+		// has Authorization
+		uid, ok = t.kvstore.Load("userIDByAccessToken", a.Value)
+		if ok {
+			// this user is already registered by other oauth provider
+			v, ok := t.kvstore.Load("userByUserID", uid.(string))
+			if !ok {
+				// fatal
+			}
+			us := v.(user.User)
+			us.TwitterID = u.IdStr
+			t.kvstore.Store("userIDByIDToken", u.IdStr, us.ID)
+			t.kvstore.Store("userByUserID", us.ID, us)
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+	}
+
 	// create new user
 	var (
 		userID = uuid.NewV4()
@@ -115,8 +135,9 @@ func (t *Twitter) handleAccessToken(w http.ResponseWriter, r *http.Request) {
 	}
 	t.kvstore.Store("userIDByIDToken", u.IdStr, userID.String())
 	t.kvstore.Store("userByUserID", userID.String(), user.User{
-		ID:   userID.String(),
-		Name: username,
+		ID:        userID.String(),
+		Name:      username,
+		TwitterID: u.IdStr,
 	})
 	t.kvstore.Store("userIDByAccessToken", token.String(), userID.String())
 

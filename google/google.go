@@ -118,6 +118,26 @@ func (g *Google) handleIDToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// check if the user is registered by other oauth provider
+	a, err := r.Cookie("Authorization")
+	if err == nil {
+		// has Authorization
+		uid, ok = g.kvstore.Load("userIDByAccessToken", a.Value)
+		if ok {
+			// this user is already registered by other oauth provider
+			v, ok := g.kvstore.Load("userByUserID", uid.(string))
+			if !ok {
+				// fatal
+			}
+			us := v.(user.User)
+			us.GoogleID = idToken.Subject
+			g.kvstore.Store("userIDByIDToken", idToken.Subject, us.ID)
+			g.kvstore.Store("userByUserID", us.ID, us)
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+	}
+
 	// create new user
 	var (
 		userID = uuid.NewV4()
@@ -131,8 +151,9 @@ func (g *Google) handleIDToken(w http.ResponseWriter, r *http.Request) {
 
 	g.kvstore.Store("userIDByIDToken", idToken.Subject, userID.String())
 	g.kvstore.Store("userByUserID", userID.String(), user.User{
-		ID:   userID.String(),
-		Name: username,
+		ID:       userID.String(),
+		Name:     username,
+		GoogleID: idToken.Subject,
 	})
 	g.kvstore.Store("userIDByAccessToken", token.String(), userID.String())
 
