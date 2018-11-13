@@ -8,6 +8,7 @@ import (
 
 	"github.com/ChimeraCoder/anaconda"
 	"github.com/garyburd/go-oauth/oauth"
+	"github.com/pankona/hashira-auth/kvstore"
 	"github.com/pankona/hashira-auth/user"
 	"github.com/satori/go.uuid"
 )
@@ -24,7 +25,7 @@ type Twitter struct {
 	accessTokenSecret string
 	credential        *oauth.Credentials
 	client            *anaconda.TwitterApi
-	kvstore           KVStore
+	kvstore           kvstore.KVStore
 	callbackURL       string
 }
 

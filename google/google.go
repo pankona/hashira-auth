@@ -7,16 +7,12 @@ import (
 	"net/http"
 
 	"github.com/coreos/go-oidc"
+	"github.com/pankona/hashira-auth/kvstore"
 	"github.com/pankona/hashira-auth/user"
 	"github.com/satori/go.uuid"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 )
-
-type KVStore interface {
-	Store(bucket, k string, v interface{})
-	Load(bucket, k string) (interface{}, bool)
-}
 
 type Google struct {
 	id       string
@@ -24,10 +20,10 @@ type Google struct {
 	provider *oidc.Provider
 	verifier *oidc.IDTokenVerifier
 	config   oauth2.Config
-	kvstore  KVStore
+	kvstore  kvstore.KVStore
 }
 
-func New(id, secret, callbackURL string, kvstore KVStore) *Google {
+func New(id, secret, callbackURL string, kvstore kvstore.KVStore) *Google {
 	provider, err := oidc.NewProvider(context.Background(), "https://accounts.google.com")
 	if err != nil {
 		log.Fatal(err)
