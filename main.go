@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/pankona/hashira-auth/google"
+	"github.com/pankona/hashira-auth/kvstore"
 	"github.com/pankona/hashira-auth/twitter"
 	"github.com/pankona/hashira-auth/user"
 )
@@ -94,7 +95,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
-func registerGoogle(kvs google.KVStore, servingBaseURL string) {
+func registerGoogle(kvs kvstore.KVStore, servingBaseURL string) {
 	var (
 		clientID     = os.Getenv("GOOGLE_OAUTH2_CLIENT_ID")
 		clientSecret = os.Getenv("GOOGLE_OAUTH2_CLIENT_SECRET")
@@ -104,7 +105,7 @@ func registerGoogle(kvs google.KVStore, servingBaseURL string) {
 	g.Register("/auth/google/")
 }
 
-func registerTwitter(kvs twitter.KVStore, servingBaseURL string) {
+func registerTwitter(kvs kvstore.KVStore, servingBaseURL string) {
 	var (
 		consumerKey       = os.Getenv("TWITTER_API_TOKEN")
 		consumerSecret    = os.Getenv("TWITTER_API_SECRET")

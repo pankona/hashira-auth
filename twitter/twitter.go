@@ -13,11 +13,6 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-type KVStore interface {
-	Store(bucket, k string, v interface{})
-	Load(bucket, k string) (interface{}, bool)
-}
-
 type Twitter struct {
 	consumerKey       string
 	consumerSecret    string
@@ -31,7 +26,7 @@ type Twitter struct {
 
 func New(consumerKey, consumerSecret,
 	accessToken, accessTokenSecret,
-	callbackURL string, kvstore KVStore) *Twitter {
+	callbackURL string, kvstore kvstore.KVStore) *Twitter {
 	if consumerKey == "" || consumerSecret == "" ||
 		accessToken == "" || accessTokenSecret == "" ||
 		callbackURL == "" {
