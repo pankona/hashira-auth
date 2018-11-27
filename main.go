@@ -9,43 +9,7 @@ import (
 	"github.com/pankona/hashira-auth/google"
 	"github.com/pankona/hashira-auth/kvstore"
 	"github.com/pankona/hashira-auth/twitter"
-	"github.com/pankona/hashira-auth/user"
 )
-
-type memKVS struct {
-	userIDByIDToken     map[string]string
-	userIDByAccessToken map[string]string
-	userByUserID        map[string]user.User
-}
-
-func (m *memKVS) Store(bucket, k string, v interface{}) {
-	switch bucket {
-	case "userIDByIDToken":
-		m.userIDByIDToken[k] = v.(string)
-	case "userIDByAccessToken":
-		m.userIDByAccessToken[k] = v.(string)
-	case "userByUserID":
-		m.userByUserID[k] = v.(user.User)
-	default:
-		panic("unknown bucket [" + bucket + "] is specified.")
-	}
-}
-
-func (m *memKVS) Load(bucket, k string) (interface{}, bool) {
-	switch bucket {
-	case "userIDByIDToken":
-		v, ok := m.userIDByIDToken[k]
-		return v, ok
-	case "userIDByAccessToken":
-		v, ok := m.userIDByAccessToken[k]
-		return v, ok
-	case "userByUserID":
-		v, ok := m.userByUserID[k]
-		return v, ok
-	default:
-		panic("unknown bucket [" + bucket + "] is specified.")
-	}
-}
 
 func main() {
 	port := os.Getenv("PORT")
@@ -63,11 +27,7 @@ func main() {
 	log.Printf("GAE_ENV: %v", env)
 	log.Printf("servingBaseURL: %v", servingBaseURL)
 
-	kvs := &memKVS{
-		userIDByIDToken:     make(map[string]string),
-		userByUserID:        make(map[string]user.User),
-		userIDByAccessToken: make(map[string]string),
-	}
+	kvs := &kvstore.DSStore{}
 	registerGoogle(kvs, servingBaseURL)
 	registerTwitter(kvs, servingBaseURL)
 
@@ -81,15 +41,20 @@ func main() {
 			return
 		}
 
-		userID, ok := kvs.userIDByAccessToken[a.Value]
+		userID, ok := kvs.Load("userIDByAccessToken", a.Value)
 		if !ok {
-			msg := fmt.Sprintf("User with id [%s] not found...", a.Value)
+			msg := fmt.Sprintf("UserID that has access token [%s] not found...", a.Value)
 			w.Write([]byte(msg))
 			return
 		}
 
-		u := kvs.userByUserID[userID]
-		msg := fmt.Sprintf("Hello, %s!", u.Name)
+		u, ok := kvs.Load("userByUserID", userID.(string))
+		if !ok {
+			msg := fmt.Sprintf("User that has user ID [%s] not found...", userID.(string))
+			w.Write([]byte(msg))
+			return
+		}
+		msg := fmt.Sprintf("Hello, %s!", u.(map[string]interface{})["Name"])
 		w.Write([]byte(msg))
 	})
 	log.Fatal(http.ListenAndServe(":"+port, nil))

@@ -109,10 +109,10 @@ func (t *Twitter) handleAccessToken(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				// fatal
 			}
-			us := v.(user.User)
-			us.TwitterID = u.IdStr
-			t.kvstore.Store("userIDByIDToken", u.IdStr, us.ID)
-			t.kvstore.Store("userByUserID", us.ID, us)
+			us := v.(map[string]interface{})
+			us["TwitterID"] = u.IdStr
+			t.kvstore.Store("userIDByIDToken", u.IdStr, us["ID"])
+			t.kvstore.Store("userByUserID", us["ID"].(string), us)
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
 		}
