@@ -41,7 +41,8 @@ func main() {
 		if err != nil {
 			msg += fmt.Sprintf("No Authorization info found...<br>")
 			msg += fmt.Sprintf("Cookies: %v<br>", r.Cookies())
-			msg += fmt.Sprintf("%s<br>", msg)
+			msg += "<a href=/auth/google>login by google</a><br>"
+			msg += "<a href=/auth/twitter>login by twitter</a><br>"
 			msg += "</html>"
 			w.Write([]byte(msg))
 			return
