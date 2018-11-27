@@ -33,28 +33,49 @@ func main() {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(r.URL.Path)
+		msg := "<html>"
+		msg += "<head><title>hashira-auth</title></head>"
+		msg += "<body>"
+
 		a, err := r.Cookie("Authorization")
 		if err != nil {
-			msg := fmt.Sprintf("No Authorization info found...")
-			fmt.Fprintf(w, "Cookies: %v\n", r.Cookies())
-			fmt.Fprintf(w, "%s\n", msg)
+			msg += fmt.Sprintf("No Authorization info found...<br>")
+			msg += fmt.Sprintf("Cookies: %v<br>", r.Cookies())
+			msg += fmt.Sprintf("%s<br>", msg)
+			msg += "</html>"
+			w.Write([]byte(msg))
 			return
 		}
 
 		userID, ok := kvs.Load("userIDByAccessToken", a.Value)
 		if !ok {
-			msg := fmt.Sprintf("UserID that has access token [%s] not found...", a.Value)
+			msg += fmt.Sprintf("UserID that has access token [%s] not found...<br>", a.Value)
+			msg += "<a href=/auth/google>login by google</a><br>"
+			msg += "<a href=/auth/twitter>login by twitter</a><br>"
+			msg += "</html>"
 			w.Write([]byte(msg))
 			return
 		}
 
 		u, ok := kvs.Load("userByUserID", userID.(string))
 		if !ok {
-			msg := fmt.Sprintf("User that has user ID [%s] not found...", userID.(string))
+			msg += fmt.Sprintf("User that has user ID [%s] not found...<br>", userID.(string))
+			msg += "<a href=/auth/google>login by google</a><br>"
+			msg += "<a href=/auth/twitter>login by twitter</a><br>"
+			msg += "</html>"
 			w.Write([]byte(msg))
 			return
 		}
-		msg := fmt.Sprintf("Hello, %s!", u.(map[string]interface{})["Name"])
+		msg += fmt.Sprintf("Hello, %s!<br>", u.(map[string]interface{})["Name"])
+		msg += "<a href=/auth/google>login by google</a>"
+		if u.(map[string]interface{})["GoogleID"] != "" {
+			msg += " Connected!<br>"
+		}
+		msg += "<a href=/auth/twitter>login by twitter</a>"
+		if u.(map[string]interface{})["TwitterID"] != "" {
+			msg += " Connected!<br>"
+		}
+		msg += "</html>"
 		w.Write([]byte(msg))
 	})
 	log.Fatal(http.ListenAndServe(":"+port, nil))
