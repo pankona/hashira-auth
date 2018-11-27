@@ -3,6 +3,7 @@ package kvstore
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"cloud.google.com/go/datastore"
@@ -12,7 +13,16 @@ type testEntity struct {
 	Value []byte
 }
 
+// Launch DataStore emulator in advance to run this test.
+// DATASTORE_EMULATOR_HOST is not set as a environment variable,
+// this function forcibly goes failure.
+// $ export DATASTORE_EMULATOR_HOST=localhost:8081
 func TestStoreAndLoad(t *testing.T) {
+
+	if os.Getenv("DATASTORE_EMULATOR_HOST") == "" {
+		t.Fatalf("Run DataStore emulator and configure environment variable of \"DATASTORE_EMULATOR_HOST\" in advance to run this test.")
+	}
+
 	ctx := context.Background()
 	dsClient, err := datastore.NewClient(ctx, "hashira-auth")
 	if err != nil {
