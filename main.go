@@ -68,14 +68,21 @@ func main() {
 			return
 		}
 		msg += fmt.Sprintf("Hello, %s!<br>", u.(map[string]interface{})["Name"])
+
 		msg += "<a href=/auth/google>login by google</a>"
 		if u.(map[string]interface{})["GoogleID"] != "" {
 			msg += " Connected!<br>"
+		} else {
+			msg += "<br>"
 		}
+
 		msg += "<a href=/auth/twitter>login by twitter</a>"
 		if u.(map[string]interface{})["TwitterID"] != "" {
 			msg += " Connected!<br>"
+		} else {
+			msg += "<br>"
 		}
+
 		msg += "</html>"
 		w.Write([]byte(msg))
 	})
