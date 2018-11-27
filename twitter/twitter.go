@@ -18,10 +18,10 @@ type Twitter struct {
 	consumerSecret    string
 	accessToken       string
 	accessTokenSecret string
-	credential        *oauth.Credentials
 	client            *anaconda.TwitterApi
 	kvstore           kvstore.KVStore
 	callbackURL       string
+	credential        map[string]*oauth.Credentials
 }
 
 func New(consumerKey, consumerSecret,
@@ -40,6 +40,7 @@ func New(consumerKey, consumerSecret,
 		accessTokenSecret: accessTokenSecret,
 		kvstore:           kvstore,
 		callbackURL:       callbackURL,
+		credential:        make(map[string]*oauth.Credentials),
 	}
 	t.client = anaconda.NewTwitterApiWithCredentials(
 		accessToken, accessTokenSecret,
@@ -59,18 +60,19 @@ func (t *Twitter) handleRequestToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: must expire
-	// TODO: support multi session
-	t.credential = tmpCred
+	t.credential[tmpCred.Token] = tmpCred
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
 func (t *Twitter) handleAccessToken(w http.ResponseWriter, r *http.Request) {
-	c, _, err := t.client.GetCredentials(t.credential, r.URL.Query().Get("oauth_verifier"))
+	oauthToken := r.URL.Query().Get("oauth_token")
+	cred := t.credential[oauthToken]
+	c, _, err := t.client.GetCredentials(cred, r.URL.Query().Get("oauth_verifier"))
 	if err != nil {
 		fmt.Fprintf(w, "%v", err)
 		return
 	}
+	delete(t.credential, oauthToken)
 
 	cli := anaconda.NewTwitterApiWithCredentials(c.Token, c.Secret, t.consumerKey, t.consumerSecret)
 
