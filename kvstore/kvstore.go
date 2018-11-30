@@ -16,8 +16,8 @@ const dsProjectName = "hashira-auth"
 
 type DSStore struct{}
 
-type Entity struct {
-	Value []byte
+type entity struct {
+	value []byte
 }
 
 func (s *DSStore) Store(bucket, k string, v interface{}) {
@@ -34,7 +34,7 @@ func (s *DSStore) Store(bucket, k string, v interface{}) {
 		panic(err)
 	}
 
-	e := &Entity{Value: buf}
+	e := &entity{value: buf}
 	if _, err := dsClient.Put(ctx, key, e); err != nil {
 		// TODO: error handling
 		panic(err)
@@ -50,14 +50,14 @@ func (s *DSStore) Load(bucket, k string) (interface{}, bool) {
 	}
 
 	key := datastore.NameKey(bucket, k, nil)
-	e := Entity{}
+	e := entity{}
 	if err := dsClient.Get(ctx, key, &e); err != nil {
 		// TODO: error handling
 		return nil, false
 	}
 
 	var v interface{}
-	if err := json.Unmarshal(e.Value, &v); err != nil {
+	if err := json.Unmarshal(e.value, &v); err != nil {
 		// TODO: error handling
 		panic(err)
 	}
