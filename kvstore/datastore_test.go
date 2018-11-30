@@ -58,3 +58,15 @@ func TestHowToUseDataStore(t *testing.T) {
 		t.Fatalf("unexpected value returned from Get: %v, expected: %v", ret, testStr)
 	}
 }
+
+func TestStoreAndLoad(t *testing.T) {
+	ds := &DSStore{}
+	ds.Store("bucket", "key", "value")
+	v, ok := ds.Load("bucket", "key")
+	if !ok {
+		t.Fatalf("failed to load. fatal.")
+	}
+	if "value" != v.(string) {
+		t.Fatalf("unexpected result. [want] %s [got] %s", "value", v.(string))
+	}
+}
