@@ -12,6 +12,7 @@ type KVStore interface {
 	Load(bucket, k string) (interface{}, bool)
 }
 
+// TODO: this should not be placed here
 const dsProjectName = "hashira-auth"
 
 type DSStore struct{}
