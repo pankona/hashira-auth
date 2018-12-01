@@ -86,6 +86,12 @@ func main() {
 		msg += "</html>"
 		w.Write([]byte(msg))
 	})
+
+	http.HandleFunc("/api/v1/accesstoken", func(w http.ResponseWriter, r *http.Request) {
+		// TODO: implement
+		// POST request to generate new access token
+	})
+
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
