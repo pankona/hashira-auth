@@ -9,6 +9,9 @@ devserver:
 deploy:
 	GO111MODULE=on gcloud app deploy -q --promote --stop-previous-version
 
+datastore-emulator:
+	GO111MODULE=on gcloud beta emulators datastore start --no-store-on-disk
+
 list:
 	gcloud app versions list
 
